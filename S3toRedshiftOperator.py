@@ -18,13 +18,7 @@ Executes a LOAD command on a s3 CSV file into a Redshift table
  
 :param s3_bucket: reference to a specific S3 bucket
 :type s3_bucket: string
- 
-:param s3_access_key_id: reference to a specific S3 key
-:type s3_key: string
- 
-:param s3_secret_access_key: reference to a specific S3 key
-:type s3_key: string
- 
+
 :param delimiter: delimiter for CSV data
 :type s3_key: string
  
@@ -33,21 +27,18 @@ Executes a LOAD command on a s3 CSV file into a Redshift table
 """
  
 @apply_defaults
-def __init__(self, redshift_conn_id,table,s3_bucket,s3_path,s3_access_key_id,
-  s3_secret_access_key,delimiter,region,*args, **kwargs):
+def __init__(self, redshift_conn_id,table,s3_bucket,s3_path,delimiter,region,*args, **kwargs):
  
   self.redshift_conn_id = redshift_conn_id
   self.table = table
   self.s3_bucket = s3_bucket
   self.s3_path = s3_path
-  self.s3_access_key_id = s3_access_key_id
-  self.s3_secret_access_key = s3_secret_access_key
   self.delimiter = delimiter 
   self.region = region
  
   super(S3ToRedshiftOperator, self).__init__(*args, **kwargs)
  
- 
+
 def execute(self, context):
   self.hook = PostgresHook(postgres_conn_id=self.redshift_conn_id)
   conn = self.hook.get_conn() 
@@ -59,10 +50,8 @@ def execute(self, context):
     copy
     {0}
     from 's3://{1}/{2}'
-    access_key_id '{3}' secret_access_key '{4}'
-    delimiter '{5}' region '{6}' """.format(
+    delimiter '{3}' region '{4}' """.format(
   self.table, self.s3_bucket, self.s3_path,
-  self.s3_access_key_id, self.s3_secret_access_key,
   self.delimiter, self.region)
  
   cursor.execute(load_statement)
@@ -72,7 +61,7 @@ def execute(self, context):
  
   return True
  
- 
+
 class S3ToRedshiftOperatorPlugin(AirflowPlugin):
   name = "redshift_load_plugin"
   operators = [S3ToRedshiftOperator]
