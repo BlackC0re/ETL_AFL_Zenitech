@@ -10,31 +10,46 @@ log = logging.getLogger(__name__)
 class S3ToRedshiftOperator(BaseOperator):
 """
 Executes a LOAD command on a s3 CSV file into a Redshift table
-:param redshift_conn_id: reference to a specific redshift database
+:param redshift_conn_id: connection reference to a specific Redshift database
 :type redshift_conn_id: string
  
-:param table: reference to a specific table in redshift database
-:type table: string
- 
-:param s3_bucket: reference to a specific S3 bucket
-:type s3_bucket: string
+:param iam_role: reference to a specific AWS IAM role
+:type iam_role: string
+
+:param region: AWS region used (eg. 'eu-west-1')
+:type region: string
+
+:param s3_path: reference to a specific S3 path
+:type s3_path: string
 
 :param delimiter: delimiter for CSV data
-:type s3_key: string
+:type delimiter: string
  
-:param region: location of the s3 bucket (eg. 'eu-central-1' or 'us-east-1')
-:type s3_key: string
+:param staging_table: reference to a specific Redshift table
+:type staging_table: string
+
+:param format_as_json: format as JSON path
+:type format_as_json: string
 """
  
 @apply_defaults
-def __init__(self, redshift_conn_id,table,s3_bucket,s3_path,delimiter,region,*args, **kwargs):
+def __init__(self,
+             redshift_conn_id,
+             iam_role="arn:aws:iam::1234:role/myRSRole",
+             region="eu-west-1",
+             s3_path,
+             delimiter,
+             staging_table,
+             format_as_json="auto",
+             *args, **kwargs):
  
   self.redshift_conn_id = redshift_conn_id
-  self.table = table
-  self.s3_bucket = s3_bucket
+  self.iam_role = iam_role
+  self.region = region  
   self.s3_path = s3_path
-  self.delimiter = delimiter 
-  self.region = region
+  self.delimiter = delimiter
+  self.staging_table = staging_table
+  self.format_as_json = format_as_json
  
   super(S3ToRedshiftOperator, self).__init__(*args, **kwargs)
  
@@ -46,18 +61,23 @@ def execute(self, context):
   log.info("Connected with " + self.redshift_conn_id)
  
   load_statement = """
-    delete from {0};
-    copy
-    {0}
-    from 's3://{1}/{2}'
-    delimiter '{3}' region '{4}' """.format(
-  self.table, self.s3_bucket, self.s3_path,
-  self.delimiter, self.region)
+    COPY {table}
+    FROM '{s3_path}'
+    iam_role '{iam_role}' 
+    region '{region}' 
+    FORMAT AS JSON '{json_path}';"""
  
-  cursor.execute(load_statement)
+  formatted_sql = load_statement.format(
+      table = self.staging_table,
+      s3_path = self.s3_path,
+      iam_role = self.iam_role,
+      region = self.region,
+      json_path = self.format_as_json 
+  ) 
+  cursor.execute(formatted_sql)
   cursor.close()
   conn.commit()
-  log.info("Load command completed")
+  log.info("COPY command completed!")
  
   return True
  
