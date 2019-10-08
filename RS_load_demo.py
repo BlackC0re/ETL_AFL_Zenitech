@@ -6,7 +6,7 @@ from airflow.operators.redshift_upsert_plugin import RedshiftUpsertOperator
 
 default_args = {
   'owner': 'me',
-  'start_date': dt.datetime(2019, 10, 4),
+  'start_date': dt.datetime(2019, 10, 8),
   'retries': 1,
   'retry_delay': dt.timedelta(minutes=5),
 }
@@ -16,27 +16,64 @@ dag = DAG('redshift-load-demo',
   schedule_interval='@once'
 )
 
-s3load = S3ToRedshiftOperator(
-  task_id="s3load",
+s3load_user = S3ToRedshiftOperator(
+  task_id="s3load_user",
   redshift_conn_id="test_rs_conn",
   iam_role="arn:aws:iam::1234:role/testRole",
   region="us-west-1",
-  s3_path="s3://account/20191004/stg_account.csv",
+  s3_path="s3://kwiff_user/20191008/users.csv",
   delimiter=",",  
-  staging_table="stg_account",
+  staging_table="stg_user",
   format_as_json="auto",
   dag=dag
 )
 
-rsupsert = RedshiftUpsertOperator(
-  task_id='rsupsert',
-  src_redshift_conn_id="test_rs_conn",
-  dest_redshift_conn_id="test_rs_conn",
-  src_table="stg_account",
-  dest_table="dim_account",
-  src_keys=["account_id"],
-  dest_keys=["account_id"],
+s3load_user_tag = S3ToRedshiftOperator(
+  task_id="s3load_user_tag",
+  redshift_conn_id="test_rs_conn",
+  iam_role="arn:aws:iam::1234:role/testRole",
+  region="us-west-1",
+  s3_path="s3://kwiff_user/20191008/user_tags.csv",
+  delimiter=",",  
+  staging_table="stg_user_tags",
+  format_as_json="auto",
+  dag=dag
+)
+
+s3load_user_mktg = S3ToRedshiftOperator(
+  task_id="s3load_user_mktg",
+  redshift_conn_id="test_rs_conn",
+  iam_role="arn:aws:iam::1234:role/testRole",
+  region="us-west-1",
+  s3_path="s3://kwiff_user/20191008/user_marketing_preferences.csv",
+  delimiter=",",  
+  staging_table="stg_user_mktg_prefs",
+  format_as_json="auto",
+  dag=dag
+)
+
+s3load_user_dev = S3ToRedshiftOperator(
+  task_id="s3load_user_dev",
+  redshift_conn_id="test_rs_conn",
+  iam_role="arn:aws:iam::1234:role/testRole",
+  region="us-west-1",
+  s3_path="s3://kwiff_user/20191008/user_devices.csv",
+  delimiter=",",  
+  staging_table="stg_user_devices",
+  format_as_json="auto",
+  dag=dag
+)
+
+load_dim_user = RedshiftUpsertOperator(
+  task_id='load_dim_user',
+  redshift_conn_id="test_rs_conn",
+  aws_iam_role="arn:aws:iam::1234:role/myRSRole",
+  dest_table="Dim_User",
+  sql_query="Query from DimUser.sql",
   dag = dag
 )
 
-s3load >> rsupsert
+s3load_user >> s3load_user_tag
+s3load_user_tag >> s3load_user_mktg
+s3load_user_mktg >> s3load_user_dev
+s3load_user_dev >> load_dim_user
